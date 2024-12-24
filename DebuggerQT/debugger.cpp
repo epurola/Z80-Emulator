@@ -101,7 +101,7 @@ private slots:
 
     void runToAddress()
     {
-        char userInput = '\0';                                     // Variable to track user input
+        char userInput = '\0';                                
         std::ofstream outFile("execution_log.txt", std::ios::out); // Open a file for writing
 
         if (!outFile.is_open())

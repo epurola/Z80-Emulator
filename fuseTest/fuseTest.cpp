@@ -6,6 +6,7 @@
 #include <utility>
 #include <cstdint>
 #include <stdexcept>
+#include <iomanip>
 #include "../main.cpp"
 #include "../Bus.cpp"
 #include "../Memory.cpp"
@@ -13,7 +14,7 @@
 
 struct Test
 {
-    std::string description; // Test description (e.g., "00")
+    std::string description;
     uint16_t AF;
     uint16_t BC;
     uint16_t DE;
@@ -34,7 +35,7 @@ struct Test
 };
 struct Expected
 {
-    std::string description; // Test description (e.g., "00")
+    std::string description;
     uint16_t AF;
     uint16_t BC;
     uint16_t DE;
@@ -105,14 +106,14 @@ std::vector<Test> parseTestsIn(const std::string &filename)
             lineType++;
         }
 
-        // Parse CPU state (registers and memory locations)
+        // Parse CPU state
         else if (lineType == 2)
-        { // Assume uninitialized state
+        {
             std::istringstream iss(line);
             iss >> std::hex >> currentTest.AF >> currentTest.BC >> currentTest.DE >> currentTest.HL >> currentTest.AF1 >> currentTest.BC1 >> currentTest.DE1 >> currentTest.HL1 >> currentTest.IX >> currentTest.IY >> currentTest.SP >> currentTest.PC >> currentTest.MEMPTR;
             lineType++;
         }
-        // Parse CPU flags and tstates
+
         else if (lineType == 3)
         {
 
@@ -224,24 +225,23 @@ std::vector<Expected> parseExpected(const std::string &filename)
             line.find("PC") != std::string::npos)
             continue;
 
-        // Start of a new test (description line)
         if (line.find(" ") == std::string::npos && line != "-1")
         {
             if (!currentTestExpected.description.empty())
             {
-                // Push the current test to the list before starting a new one
+
                 expected.push_back(currentTestExpected);
                 currentTestExpected = Expected();
             }
             currentTestExpected.description = line;
         }
-        // Parse CPU state (registers and memory locations)
+      
         else if (spaceCount >= 12 && spaceCount != 17)
         {
             std::istringstream iss(line);
             iss >> std::hex >> currentTestExpected.AF >> currentTestExpected.BC >> currentTestExpected.DE >> currentTestExpected.HL >> currentTestExpected.AF1 >> currentTestExpected.BC1 >> currentTestExpected.DE1 >> currentTestExpected.HL1 >> currentTestExpected.IX >> currentTestExpected.IY >> currentTestExpected.SP >> currentTestExpected.PC >> currentTestExpected.MEMPTR;
         }
-        // Parse CPU flags and tstates
+     
         else if (spaceCount == 10 || spaceCount == 6 || spaceCount == 8 || spaceCount == 9 && currentTestExpected.tstates == 0)
         {
             std::istringstream iss(line);
@@ -249,7 +249,7 @@ std::vector<Expected> parseExpected(const std::string &filename)
 
             iss >> std::hex >> currentTestExpected.I >> currentTestExpected.R >> currentTestExpected.IFF1 >> currentTestExpected.IFF2 >> currentTestExpected.IM >> halted >> currentTestExpected.tstates;
         }
-        // Parse memory setup
+      
         else if (currentTestExpected.memorySetup.empty())
         {
 
@@ -291,7 +291,7 @@ std::vector<Expected> parseExpected(const std::string &filename)
             }
             if (!bytes.empty() && bytes.back() == 0xFF)
             {
-                // Remove the last byte if it's 0xFF
+              
                 bytes.pop_back();
             }
 
@@ -341,7 +341,7 @@ int main()
             }
 
             const Test &test = tests[i];
-            const Expected &exp = expected[i]; // Access the corresponding Expected object by index
+            const Expected &exp = expected[i]; 
 
             std::cout << "Test Description: " << test.description
                       << " Expected Description: " << exp.description << "\n";
@@ -380,7 +380,7 @@ int main()
                     // Loop over each byte in the vector and write it to the bus
                     for (uint8_t byte : bytes)
                     {
-                        bus.write(currentAddress, byte); // Write each byte (uint8_t) to the bus
+                        bus.write(currentAddress, byte); // Write each byte to the bus
                         currentAddress++;                // Increment the address for the next byte
                     }
                 }
@@ -411,11 +411,11 @@ int main()
                         uint8_t value = bus.read(currentAddress);
                         if ((int)value != (int)byte)
                         {
-                            memoryOk = false; 
+                            memoryOk = false;
                             std::cout << "Mismatch in MEMORY: Expected " << byte << ", Got " << (int)value << std::endl;
-                            break; 
+                            break;
                         }
-        
+
                         currentAddress++;
                     }
                 }
@@ -457,7 +457,7 @@ int main()
                 std::cout << "Test failed!" << std::endl;
                 std::cout << "Name: " << test.description << std::endl;
 
-#include <iomanip> // For std::hex and std::setfill
+#include <iomanip>
 
                 if (cpu.A != (exp.AF >> 8))
                     std::cout << "Mismatch in A: Expected " << std::hex << (exp.AF >> 8) << ", Got " << std::hex << (int)cpu.A << std::endl;
@@ -487,8 +487,8 @@ int main()
                     std::cout << "Mismatch in I: Expected " << std::hex << exp.I << ", Got " << std::hex << (int)cpu.I << std::endl;
                 if (cpu.R != exp.R)
                     std::cout << "Mismatch in R: Expected " << std::hex << exp.R << ", Got " << std::hex << (int)cpu.R << std::endl;
-               // if (cpu.MPTR != exp.MEMPTR)
-                  //  std::cout << "Mismatch in MPTR: Expected " << std::hex << exp.R << ", Got " << std::hex << (int)cpu.MPTR << std::endl;
+                // if (cpu.MPTR != exp.MEMPTR)
+                //  std::cout << "Mismatch in MPTR: Expected " << std::hex << exp.R << ", Got " << std::hex << (int)cpu.MPTR << std::endl;
 
                 std::cout << "Memory setup during the test:" << std::endl;
                 for (const auto &[startAddress, bytes] : test.memorySetup)
