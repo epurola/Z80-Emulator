@@ -1,0 +1,52 @@
+cmake_minimum_required(VERSION 3.14)
+
+
+set(FirstTest ExampleTests)
+
+set(FirstTestSources
+    ExampleTests.cpp
+)
+add_executable(${FirstTest} ${FirstTestSources})
+
+target_link_libraries(${FirstTest} PUBLIC
+    gtest_main
+    z80Emulator
+)
+
+add_test(
+    NAME ${FirstTest}
+    COMMAND ${FirstTest}
+)
+
+set(SecondTest AnotherTests)
+set(SecondTestSources
+    AnotherTestFile.cpp
+)
+add_executable(${SecondTest} ${SecondTestSources})
+
+target_link_libraries(${SecondTest} PUBLIC
+    gtest_main
+    z80Emulator
+)
+
+add_test(
+    NAME ${SecondTest}
+    COMMAND ${SecondTest}
+)
+
+set(ThirdTest JumpTests)
+set(ThirdTestSources
+    JumpTest.cpp
+)
+add_executable(${ThirdTest} ${ThirdTestSources})
+
+target_link_libraries(${ThirdTest} PUBLIC
+    gtest_main
+    z80Emulator
+)
+
+add_test(
+    NAME ${ThirdTest}
+    COMMAND ${ThirdTest}
+)
+

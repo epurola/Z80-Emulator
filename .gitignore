@@ -1,0 +1,11 @@
+# Ignore Visual Studio Code settings
+.vscode/
+
+# Ignore build directories
+/build/
+
+# Ignore googletest directory
+/googletest/
+
+# Ignore lib directory
+/lib/
