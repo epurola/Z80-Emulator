@@ -19,5 +19,6 @@ In addition to the core emulation functionality, the project includes a **debugg
 - **Debugger with Qt GUI**: A user-friendly debugger with a Qt-based interface for debugging and inspecting Z80 programs.
 
 ![alt text](image.png)
+ZXspectrum running using the emulated cpu
 ![alt text](image-1.png)
 ![alt text](image-2.png)
