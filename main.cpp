@@ -4,20 +4,65 @@
 
 z80::z80()
 {
-    reset(nullptr); 
+    reset(nullptr);
+}
+
+void z80::run(uint8_t opCode)
+{
+
+    if (!halted)
+    {
+        execute(opCode); 
+    }
+    handleInterrupt(interruptMode);
+}
+
+void z80::handleInterrupt(InterruptMode interruptMode)
+{
+    if(bus->interrupt)
+    {
+
+    if (halted)
+    {
+        halted = false;
+        PC++;
+    }
+    if (IFF1)
+    {
+         IFF1 = IFF2 = false;
+        switch (interruptMode)
+        {
+        case InterruptMode::Mode0:
+            break;
+        case InterruptMode::Mode1:
+            PC--;
+            pushPC();
+            PC = 0x0038;
+            break;
+        case InterruptMode::Mode2:
+            break;
+        default:
+            break;
+        }
+    }
+
+    }
 }
 
 // Reset registers to default values
 void z80::reset(Bus *bus)
 {
     A = A1 = 0xFF;
-    F = F1= 0xFF;
+    F = F1 = 0xFF;
     B = C = D = E = H = L = 0x00;
     B1 = C1 = D1 = E1 = H1 = L1 = 0x00;
     I = R = 0x00;
     IX = IY = 0x00;
     PC = 0x0000;
-    SP= 0xFFFF;
+    SP = 0xFFFF;
+    interruptMode = InterruptMode::Mode0;
+    halted = false;
+    IFF1 = IFF2 =  false;
 
     this->bus = bus;
 
@@ -87,6 +132,9 @@ void z80::writeToRegister(uint8_t regIndex, uint8_t value)
         break;
     case 5:
         L = value;
+        break;
+    case 6:
+        F = value;
         break;
     case 7:
         A = value;
@@ -422,10 +470,9 @@ void z80::initializeInstructionTable()
 
     instructionTable[0xDB] = Instruction("IN A, (n)", &z80::IN_A_N, 10);
     instructionTable[0xD3] = Instruction("OUT (n), A", &z80::OUT_N_A, 10);
-    
 
     // DD-prefixed instructions
-   
+
     instructionTableDD[0xE9] = Instruction("JP (IX)", &z80::JP_IX, 10);
     instructionTableDD[0x46] = Instruction("LD B, (IX+d)", &z80::LD_R_IX_D, 19);
     instructionTableDD[0x4E] = Instruction("LD C, (IX+d)", &z80::LD_R_IX_D, 19);
@@ -447,7 +494,7 @@ void z80::initializeInstructionTable()
     instructionTableDD[0x21] = Instruction("LD IX, nn", &z80::LD_IX_NN, 10);
     instructionTableDD[0x2A] = Instruction("LD IX, (nn)", &z80::LD_IX_NN2, 10);
     instructionTableDD[0x22] = Instruction("LD (nn), IX", &z80::LD_NN_IX, 10);
-    instructionTableDD[0x22] = Instruction("LD (nn), IY", &z80::LD_NN_IX, 10);
+
 
     instructionTableDD[0x26] = Instruction("LD IXh, n", &z80::LD_IXH_N, 10);
     instructionTableDD[0x2E] = Instruction("LD IXl, n", &z80::LD_IXl_N, 10);
@@ -534,7 +581,7 @@ void z80::initializeInstructionTable()
     instructionTableDD[0xFD] = Instruction("NOP", &z80::NOP, 10);
 
     // FD-prefixed instructions
-    
+
     instructionTableFD[0x46] = Instruction("LD B, (IY+d)", &z80::LD_R_IY_D, 19);
     instructionTableFD[0x4E] = Instruction("LD C, (IY+d)", &z80::LD_R_IY_D, 19);
     instructionTableFD[0x56] = Instruction("LD D, (IY+d)", &z80::LD_R_IY_D, 19);
@@ -1028,7 +1075,6 @@ void z80::initializeInstructionTable()
     instructionTableCB[0xBD] = Instruction("RES 7, L", &z80::RES_B_R, 10);
     instructionTableCB[0xBF] = Instruction("RES 7, A", &z80::RES_B_R, 10);
     instructionTableCB[0xBE] = Instruction("RES 7, (HL)", &z80::RES_B_HL, 10);
-
 
     instructionTableDDCB[0x40] = Instruction("BIT 0, (IX+d)", &z80::BIT_B_IX_D, 10);
     instructionTableDDCB[0x41] = Instruction("BIT 0, (IX+d)", &z80::BIT_B_IX_D, 10);
@@ -1697,13 +1743,15 @@ void z80::execute(uint8_t opCode)
         }
         else
         {
-            if(opCode==0x00 || opCode==0x64 || opCode==0x6D ){
-               IncrementRefreshRegister(1);
+            if (opCode == 0x00 || opCode == 0x64 || opCode == 0x6D)
+            {
+                IncrementRefreshRegister(1);
             }
-            else{
+            else
+            {
                 IncrementRefreshRegister(2);
             }
-            
+
             if (instructionTableDD.find(opCode) != instructionTableDD.end())
             {
                 Instruction &instruction = instructionTableDD[opCode];
@@ -1715,7 +1763,7 @@ void z80::execute(uint8_t opCode)
     // Handle FD-prefixed instructions
     else if (opCode == 0xFD)
     {
-     
+
         PC++;                   // Move to the next part of long opCode
         opCode = bus->read(PC); // Read the next opcode
         if (opCode == 0xCB)
@@ -1731,13 +1779,15 @@ void z80::execute(uint8_t opCode)
         }
         else
         {
-              if(opCode ==0x64 || opCode ==0x6d){
-               IncrementRefreshRegister(1);
+            if (opCode == 0x64 || opCode == 0x6d)
+            {
+                IncrementRefreshRegister(1);
             }
-            else{
+            else
+            {
                 IncrementRefreshRegister(2);
             }
-            
+
             if (instructionTableFD.find(opCode) != instructionTableFD.end())
             {
                 Instruction &instruction = instructionTableFD[opCode];
@@ -1749,10 +1799,9 @@ void z80::execute(uint8_t opCode)
     // Handle ED-prefixed instructions
     else if (opCode == 0xED)
     {
-        
-        
+
         IncrementRefreshRegister(2);
-            
+
         PC++;                   // Move to the next part of long opCode
         opCode = bus->read(PC); // Read the next opcode
         if (instructionTableED.find(opCode) != instructionTableED.end())
@@ -1826,6 +1875,7 @@ void z80::LD_R_IX_D(uint8_t opCode)
     int8_t displacement = fetchImmediate();       // Signed displacement
     uint8_t value = bus->read(IX + displacement); // FIND A BETTER IMPLEMENTATION FOR IX; HL SO On
     writeToRegister(destinationRegister, value);
+    MPTR = IX +displacement;
 }
 
 void z80::LD_R_IY_D(uint8_t opCode)
@@ -1834,6 +1884,7 @@ void z80::LD_R_IY_D(uint8_t opCode)
     int8_t displacement = fetchImmediate(); // Signed displacement
     uint8_t value = bus->read(IY + displacement);
     writeToRegister(destinationRegister, value);
+    MPTR = IY +displacement;
 }
 
 void z80::LD_IX_D_R(uint8_t opCode)
@@ -1843,6 +1894,7 @@ void z80::LD_IX_D_R(uint8_t opCode)
     int8_t d = fetchImmediate();
     uint16_t address = IX + d; // FIND A BETTER IMPLEMENTATION FOR IX; HL SO On
     bus->write(address, value);
+    MPTR = address;
 }
 
 void z80::LD_IY_D_R(uint8_t opCode)
@@ -1852,6 +1904,7 @@ void z80::LD_IY_D_R(uint8_t opCode)
     int8_t d = fetchImmediate();
     uint16_t address = IY + d;
     bus->write(address, value);
+    MPTR = address;
 }
 void z80::LD_HL_N(uint8_t opCode)
 {
@@ -1865,6 +1918,7 @@ void z80::LD_IX_D_N(uint8_t opCode)
     uint8_t value = fetchImmediate();
     uint16_t address = IX + d; // FIND A BETTER IMPLEMENTATION FOR IX; HL SO On
     bus->write(address, value);
+    MPTR = address;
 }
 void z80::LD_IY_D_N(uint8_t opCode)
 {
@@ -1872,6 +1926,7 @@ void z80::LD_IY_D_N(uint8_t opCode)
     uint8_t value = fetchImmediate();
     uint16_t address = IY + d; // FIND A BETTER IMPLEMENTATION FOR IX; HL SO On
     bus->write(address, value);
+    MPTR = address;
 }
 
 void z80::LD_A_BC(uint8_t opCode)
@@ -1879,12 +1934,14 @@ void z80::LD_A_BC(uint8_t opCode)
     uint16_t address = getBC();
     uint8_t value = bus->read(address);
     A = value;
+    MPTR = getBC() + 1;
 }
 void z80::LD_A_DE(uint8_t opCode)
 {
     uint16_t address = getDE();
     uint8_t value = bus->read(address);
     A = value;
+    MPTR = getDE() + 1;
 }
 void z80::LD_A_NN(uint8_t opCode)
 {
@@ -1892,18 +1949,21 @@ void z80::LD_A_NN(uint8_t opCode)
     uint8_t highByte = fetchImmediate();
     uint16_t address = (highByte << 8) | lowByte;
     A = bus->read(address);
+    MPTR = address + 1;
 }
 void z80::LD_BC_A(uint8_t opCode)
 {
     uint8_t value = A;
     uint16_t address = getBC();
     bus->write(address, value);
+    MPTR = ((A << 8) + ((getBC() + 1) & 0xFF));
 }
 void z80::LD_DE_A(uint8_t opCode)
 {
     uint8_t value = A;
     uint16_t address = getDE();
     bus->write(address, value);
+    MPTR = ((A << 8) + ((getDE() + 1) & 0xFF));
 }
 void z80::LD_NN_A(uint8_t opCode)
 {
@@ -1912,6 +1972,7 @@ void z80::LD_NN_A(uint8_t opCode)
     uint8_t highByte = fetchImmediate();
     uint16_t address = (highByte << 8) | lowByte;
     bus->write(address, value);
+    MPTR = ((A << 8) + ((address + 1) & 0xFF));
 }
 
 void z80::LD_A_I(uint8_t opCode)
@@ -1925,9 +1986,8 @@ void z80::LD_A_I(uint8_t opCode)
     // If an interrupt occurs during execution of this instruction, the Parity flag contains a 0.
     clearFlag(N);
 
-     ((A & 0x08) > 0)? setFlag(X) : clearFlag(X);
+    ((A & 0x08) > 0) ? setFlag(X) : clearFlag(X);
     ((A & 0x20) > 0) ? setFlag(U) : clearFlag(U);
-    
 }
 
 void z80::LD_A_R(uint8_t opCode)
@@ -1941,7 +2001,7 @@ void z80::LD_A_R(uint8_t opCode)
     // If an interrupt occurs during execution of this instruction, the Parity flag contains a 0.
     clearFlag(N);
 
-    ((A & 0x08) > 0)? setFlag(X) : clearFlag(X);
+    ((A & 0x08) > 0) ? setFlag(X) : clearFlag(X);
     ((A & 0x20) > 0) ? setFlag(U) : clearFlag(U);
 }
 
@@ -2155,7 +2215,6 @@ void z80::LD_IYL_IYH(uint8_t opCode)
     IY = (hiByte << 8) + hiByte;
 }
 
-
 void z80::LD_IXL_IXH(uint8_t opCode)
 {
     uint8_t hiByte = (IX >> 8);
@@ -2246,6 +2305,7 @@ void z80::LD_HL_NN(uint8_t opCode)
     uint8_t value2 = bus->read(address2);
     H = value2;
     L = value1;
+    MPTR = (hiByte << 8) + loByte + 1;
 }
 void z80::LD_DD_nn(uint8_t opCode)
 {
@@ -2256,6 +2316,7 @@ void z80::LD_DD_nn(uint8_t opCode)
     uint16_t address2 = address + 1;
     uint8_t value1 = bus->read(address);
     uint8_t value2 = bus->read(address2);
+    MPTR = (hiByte << 8) + loByte + 1;
 
     switch (destination)
     {
@@ -2290,6 +2351,8 @@ void z80::LD_IX_NN2(uint8_t opCode)
     uint8_t value2 = bus->read(address2);
 
     IX = uint16_t(value2 << 8) | value1;
+
+    MPTR = (hiByte << 8) + loByte + 1;
 }
 void z80::LD_IY_NN2(uint8_t opCode)
 {
@@ -2302,6 +2365,8 @@ void z80::LD_IY_NN2(uint8_t opCode)
     uint8_t value1 = bus->read(address);
     uint8_t value2 = bus->read(address2);
     IY = uint16_t(value2 << 8) | value1;
+
+    MPTR = (hiByte << 8) + loByte + 1;
 }
 void z80::LD_NN_HL(uint8_t opCode)
 {
@@ -2310,6 +2375,7 @@ void z80::LD_NN_HL(uint8_t opCode)
     uint16_t address = (hiByte << 8) | loByte;
     bus->write(address, L);
     bus->write(address + 1, H);
+    MPTR = (hiByte << 8) + loByte + 1;
 }
 void z80::LD_NN_DD(uint8_t opCode)
 {
@@ -2318,6 +2384,8 @@ void z80::LD_NN_DD(uint8_t opCode)
     uint8_t hiByte = fetchImmediate();
     uint16_t address = (hiByte << 8) | loByte;
     uint16_t address2 = address + 1;
+    MPTR = (hiByte << 8) + loByte + 1;
+
 
     switch (destination)
     {
@@ -2353,6 +2421,8 @@ void z80::LD_NN_IX(uint8_t opCode)
     uint16_t address = (hiByte << 8) | loByte;
     bus->write(address, IX & 0xFF);
     bus->write(address + 1, (IX >> 8) & 0xFF);
+    MPTR = (hiByte << 8) + loByte + 1;
+
 }
 void z80::LD_NN_IY(uint8_t opCode)
 {
@@ -2361,6 +2431,7 @@ void z80::LD_NN_IY(uint8_t opCode)
     uint16_t address = (hiByte << 8) | loByte;
     bus->write(address, IY & 0xFF);
     bus->write(address + 1, (IY >> 8) & 0xFF);
+     MPTR = (hiByte << 8) + loByte + 1;
 }
 void z80::LD_SP_HL(uint8_t opCode)
 {
@@ -2589,7 +2660,7 @@ void z80::LDI(uint8_t opCode)
     uint8_t data = bus->read(srcAddress);
     bus->write(destAddress, data);
 
-     uint8_t temp1 = (data + A);
+    uint8_t temp1 = (data + A);
 
     uint16_t temp;
 
@@ -2616,12 +2687,9 @@ void z80::LDI(uint8_t opCode)
     clearFlag(H_flag);
     getBC() != 0 ? setFlag(P) : clearFlag(P);
     clearFlag(N);
-    
 
     ((temp1 & 0x02) > 0) ? setFlag(U) : clearFlag(U);
     ((temp1 & 0x08) > 0) ? setFlag(X) : clearFlag(X);
-
-
 }
 
 // Interrupts are recognized and two refresh cycles are executed after each data transfer. When the
@@ -2673,7 +2741,7 @@ void z80::LDIR(uint8_t opCode)
         PC--;
         PC--;
 
-        MPTR = PC + 1;
+        MPTR = PC + 2;
     }
 }
 void z80::LDD(uint8_t opCode)
@@ -2684,7 +2752,7 @@ void z80::LDD(uint8_t opCode)
     uint8_t data = bus->read(srcAddress);
     bus->write(destAddress, data);
 
- uint8_t temp = (data + A);
+    uint8_t temp = (data + A);
     uint16_t HL = getHL();
     HL--;
     uint8_t hi1 = (HL >> 8) & 0xFF;
@@ -2716,8 +2784,6 @@ void z80::LDD(uint8_t opCode)
     ((temp & 0x02) > 0) ? setFlag(U) : clearFlag(U);
 
     ((temp & 0x08) > 0) ? setFlag(X) : clearFlag(X);
-
-     
 }
 
 // When the BC is set to 0, prior to instruction execution, the instruction loops through
@@ -2730,7 +2796,7 @@ void z80::LDDR(uint8_t opCode)
     uint8_t data = bus->read(srcAddress);
     bus->write(destAddress, data);
 
-     uint8_t temp = (data + A);
+    uint8_t temp = (data + A);
 
     uint16_t HL = getHL();
     HL--;
@@ -2767,7 +2833,7 @@ void z80::LDDR(uint8_t opCode)
     {
         PC--;
         PC--;
-        MPTR = PC+1;
+        MPTR = PC + 2;
     }
 }
 void z80::CPI(uint8_t opCode)
@@ -2777,11 +2843,11 @@ void z80::CPI(uint8_t opCode)
 
     uint8_t value = bus->read(address);
 
-    int8_t diff = ( A- value);
+    int8_t diff = (A - value);
 
     uint8_t c = isFlagSet(C_flag);
 
-   uint16_t HL_ = getHL();
+    uint16_t HL_ = getHL();
     HL_++;
     uint8_t hi1 = (HL_ >> 8) & 0xFF;
     uint8_t lo1 = HL_ & 0xFF;
@@ -2822,9 +2888,9 @@ void z80::CPIR(uint8_t opCode)
 
     uint8_t value = bus->read(address);
 
-    int8_t temp = ( A- value);
+    int8_t temp = (A - value);
 
-     uint16_t HL_ = getHL();
+    uint16_t HL_ = getHL();
     HL_++;
     uint8_t hi1 = (HL_ >> 8) & 0xFF;
     uint8_t lo1 = HL_ & 0xFF;
@@ -2840,7 +2906,6 @@ void z80::CPIR(uint8_t opCode)
     B = hi;
     C = lo;
 
-
     uint8_t c = isFlagSet(C_flag) ? 1 : 0;
 
     CP_Flags(A, value);
@@ -2850,7 +2915,7 @@ void z80::CPIR(uint8_t opCode)
     getBC() != 0 ? setFlag(P) : clearFlag(P);
     setFlag(N);
 
-    int8_t result = A - value -(isFlagSet(H_flag) ? 1 : 0);
+    int8_t result = A - value - (isFlagSet(H_flag) ? 1 : 0);
 
     ((temp & 0x02) > 0) ? setFlag(U) : clearFlag(U);
 
@@ -2860,9 +2925,10 @@ void z80::CPIR(uint8_t opCode)
     {
         PC--;
         PC--;
-        MPTR = PC +1;
+        MPTR = PC + 2;
     }
-    else{
+    else
+    {
         MPTR++;
     }
 }
@@ -2873,9 +2939,9 @@ void z80::CPD(uint8_t opCode)
 
     uint8_t value = bus->read(address);
 
-     int8_t temp = ( A- value);
+    int8_t temp = (A - value);
 
-     uint16_t HL_ = getHL();
+    uint16_t HL_ = getHL();
     HL_--;
     uint8_t hi1 = (HL_ >> 8) & 0xFF;
     uint8_t lo1 = HL_ & 0xFF;
@@ -2891,7 +2957,6 @@ void z80::CPD(uint8_t opCode)
     B = hi;
     C = lo;
 
-
     uint8_t c = isFlagSet(C_flag) ? 1 : 0;
 
     CP_Flags(A, value);
@@ -2901,7 +2966,7 @@ void z80::CPD(uint8_t opCode)
     getBC() != 0 ? setFlag(P) : clearFlag(P);
     setFlag(N);
 
-    int8_t result = A - value -(isFlagSet(H_flag) ? 1 : 0);
+    int8_t result = A - value - (isFlagSet(H_flag) ? 1 : 0);
 
     ((temp & 0x02) > 0) ? setFlag(U) : clearFlag(U);
 
@@ -2936,8 +3001,7 @@ void z80::CPDR(uint8_t opCode)
     H = hi1;
     L = lo1;
 
-    
-   uint8_t c = isFlagSet(C_flag) ? 1 : 0;
+    uint8_t c = isFlagSet(C_flag) ? 1 : 0;
 
     CP_Flags(A, value);
 
@@ -2946,7 +3010,7 @@ void z80::CPDR(uint8_t opCode)
     getBC() != 0 ? setFlag(P) : clearFlag(P);
     setFlag(N);
 
-    int8_t result = A - value -(isFlagSet(H_flag) ? 1 : 0);
+    int8_t result = A - value - (isFlagSet(H_flag) ? 1 : 0);
 
     ((result & 0x02) > 0) ? setFlag(U) : clearFlag(U);
 
@@ -2956,8 +3020,11 @@ void z80::CPDR(uint8_t opCode)
     {
         PC--;
         PC--;
+        MPTR = PC +2;
     }
-       
+    else{
+        MPTR--;
+    }
 }
 
 /*****************************************|
@@ -3151,6 +3218,7 @@ void z80::ADD_A_IX_D(uint8_t opCode)
     uint16_t address = IX + d;
     uint8_t value = bus->read(address);
     A = Add8_Bit(A, value);
+    MPTR= IX+d;
 }
 void z80::ADD_A_IY_D(uint8_t opCode)
 {
@@ -3158,6 +3226,7 @@ void z80::ADD_A_IY_D(uint8_t opCode)
     uint16_t address = IY + d;
     uint8_t value = bus->read(address);
     A = Add8_Bit(A, value);
+     MPTR= IY+d;
 }
 void z80::ADC_A_s(uint8_t opCode)
 {
@@ -3189,6 +3258,7 @@ void z80::ADC_A_IX_D(uint8_t opCode)
     uint8_t carry = isFlagSet(C_flag) ? 1 : 0;
     value += carry;
     A = Add8_Bit(A, value);
+    MPTR=IX+d;
 }
 void z80::ADC_A_IX_H(uint8_t opCode)
 {
@@ -3247,6 +3317,7 @@ void z80::ADC_A_IY_D(uint8_t opCode)
     uint8_t carry = isFlagSet(C_flag) ? 1 : 0;
     value += carry;
     A = Add8_Bit(A, value);
+    MPTR=IY+d;
 }
 void z80::SUB_A_R(uint8_t opCode)
 {
@@ -3270,6 +3341,7 @@ void z80::SUB_A_IX_D(uint8_t opCode)
     uint16_t address = IX + d;
     uint8_t value = bus->read(address);
     A = Sub8_Bit(A, value);
+    MPTR=IX+d;
 }
 void z80::SUB_A_IY_D(uint8_t opCode)
 {
@@ -3277,6 +3349,7 @@ void z80::SUB_A_IY_D(uint8_t opCode)
     uint16_t address = IY + d;
     uint8_t value = bus->read(address);
     A = Sub8_Bit(A, value);
+    MPTR=IY+d;
 }
 void z80::SBC_A_S(uint8_t opCode)
 {
@@ -3308,6 +3381,7 @@ void z80::SBC_A_IX_D(uint8_t opCode)
     uint8_t carry = isFlagSet(C_flag) ? 1 : 0;
     value += carry;
     A = Sub8_Bit(A, value);
+    MPTR=IX+d;
 }
 void z80::SBC_A_IY_D(uint8_t opCode)
 {
@@ -3317,6 +3391,7 @@ void z80::SBC_A_IY_D(uint8_t opCode)
     uint8_t carry = isFlagSet(C_flag) ? 1 : 0;
     value += carry;
     A = Sub8_Bit(A, value);
+    MPTR=IY+d;
 }
 void z80::AND_A_R(uint8_t opCode)
 {
@@ -3340,6 +3415,7 @@ void z80::AND_A_IX_D(uint8_t opCode)
     uint16_t address = IX + d;
     uint8_t value = bus->read(address);
     A = And8_Bit(A, value);
+    MPTR=IX+d;
 }
 
 void z80::AND_A_IX_H(uint8_t opCode)
@@ -3411,7 +3487,6 @@ void z80::CP_IX_L(uint8_t opCode)
     CP_Flags(A, n);
 }
 
-
 void z80::CP_A_IY_H(uint8_t opCode)
 {
     uint8_t n = ((IY & 0xFF00) >> 8);
@@ -3443,6 +3518,7 @@ void z80::AND_A_IY_D(uint8_t opCode)
     uint16_t address = IY + d;
     uint8_t value = bus->read(address);
     A = And8_Bit(A, value);
+    MPTR=IY+d;
 }
 void z80::OR_A_R(uint8_t opCode)
 {
@@ -3466,6 +3542,7 @@ void z80::OR_A_IX_D(uint8_t opCode)
     uint16_t address = IX + d;
     uint8_t value = bus->read(address);
     A = Or8_Bit(A, value);
+    MPTR=IX+d;
 }
 void z80::OR_A_IY_D(uint8_t opCode)
 {
@@ -3473,6 +3550,7 @@ void z80::OR_A_IY_D(uint8_t opCode)
     uint16_t address = IY + d;
     uint8_t value = bus->read(address);
     A = Or8_Bit(A, value);
+    MPTR=IY+d;
 }
 void z80::XOR_A_R(uint8_t opCode)
 {
@@ -3496,6 +3574,7 @@ void z80::XOR_A_IX_D(uint8_t opCode)
     uint16_t address = IX + d;
     uint8_t value = bus->read(address);
     A = Xor8_Bit(A, value);
+    MPTR=IX+d;
 }
 void z80::XOR_A_IY_D(uint8_t opCode)
 {
@@ -3503,6 +3582,7 @@ void z80::XOR_A_IY_D(uint8_t opCode)
     uint16_t address = IY + d;
     uint8_t value = bus->read(address);
     A = Xor8_Bit(A, value);
+    MPTR=IY+d;
 }
 void z80::CP_R(uint8_t opCode)
 {
@@ -3527,6 +3607,7 @@ void z80::CP_IX_D(uint8_t opCode)
     uint16_t address = IX + d;
     uint8_t value = bus->read(address);
     CP_Flags(A, value);
+    MPTR=IX+d;
 }
 void z80::CP_IY_D(uint8_t opCode)
 {
@@ -3534,6 +3615,7 @@ void z80::CP_IY_D(uint8_t opCode)
     uint16_t address = IY + d;
     uint8_t value = bus->read(address);
     CP_Flags(A, value);
+    MPTR=IY+d;
 }
 
 void z80::IncFlags(uint8_t value, uint8_t result)
@@ -3584,6 +3666,7 @@ void z80::INC_IX_D(uint8_t opCode)
     IncFlags(target, target + 1);
     target++;
     bus->write(IX + d, target);
+    MPTR = IX + d;
 }
 void z80::INC_IY_D(uint8_t opCode)
 {
@@ -3592,6 +3675,7 @@ void z80::INC_IY_D(uint8_t opCode)
     IncFlags(target, target + 1);
     target++;
     bus->write(IY + d, target);
+    MPTR = IY + d;
 }
 void z80::DEC_R(uint8_t opCode)
 {
@@ -3615,6 +3699,7 @@ void z80::DEC_IX_D(uint8_t opCode)
     DecFlags(target, target - 1);
     target--;
     bus->write(IX + d, target);
+    MPTR = IX +d;
 }
 void z80::DEC_IY_D(uint8_t opCode)
 {
@@ -3623,6 +3708,7 @@ void z80::DEC_IY_D(uint8_t opCode)
     DecFlags(target, target - 1);
     target--;
     bus->write(IY + d, target);
+    MPTR = IY+d;
 }
 
 /*****************************************|
@@ -3852,7 +3938,7 @@ uint16_t z80::Add16_BitCarry(uint16_t a, uint16_t b)
 
     ((sum & 0x0800) > 0) ? setFlag(X) : clearFlag(X);
     ((sum & 0x2000) > 0) ? setFlag(U) : clearFlag(U);
-MPTR = a + 1;
+    MPTR = a + 1;
     return sum;
 }
 uint16_t z80::Sub16_Bit(uint16_t a, uint16_t b)
@@ -3860,7 +3946,6 @@ uint16_t z80::Sub16_Bit(uint16_t a, uint16_t b)
     uint16_t c = 0;
     isFlagSet(C_flag) ? c = 1 : c = 0;
     uint16_t sum = a - b - c;
-    
 
     ((sum & 0x8000) > 0) ? setFlag(S) : clearFlag(S);
     a < (b + c) ? setFlag(C_flag) : clearFlag(C_flag);
@@ -3884,7 +3969,7 @@ uint16_t z80::Sub16_Bit(uint16_t a, uint16_t b)
     {
         clearFlag(P);
     }
-((sum & 0x0800) > 0) ? setFlag(X) : clearFlag(X);
+    ((sum & 0x0800) > 0) ? setFlag(X) : clearFlag(X);
     ((sum & 0x2000) > 0) ? setFlag(U) : clearFlag(U);
 
     MPTR = a + 1;
@@ -4062,7 +4147,6 @@ void z80::RLCA(uint8_t opCode)
 
     ((A & 0x08) > 0) ? setFlag(X) : clearFlag(X);
     ((A & 0x20) > 0) ? setFlag(U) : clearFlag(U);
-
 }
 void z80::RLA(uint8_t opCode)
 {
@@ -4166,6 +4250,7 @@ void z80::RLC_IX_D(uint8_t opCode)
 
     uint8_t c = 0;
     uint8_t value = bus->read(IX + d);
+    MPTR=IX+d;
     if ((value & 0b10000000) > 0)
     {
         c = 1;
@@ -4188,6 +4273,7 @@ void z80::RLC_IY_D(uint8_t opCode)
     int8_t d = fetchImmediate();
     uint8_t dest = fetchImmediate();
     dest = dest & 0b00000111;
+    MPTR=IY+d;
 
     uint8_t c = 0;
     uint8_t value = bus->read(IY + d);
@@ -4243,6 +4329,7 @@ void z80::RL_IX_D(uint8_t opCode)
     uint8_t dest = fetchImmediate();
     dest = dest & 0b00000111;
     uint8_t value = bus->read(IX + d);
+    MPTR=IX+d;
 
     uint8_t currC = isFlagSet(C_flag);
     uint8_t newC = value & 0b10000000;
@@ -4265,6 +4352,7 @@ void z80::RL_IY_D(uint8_t opCode)
     uint8_t dest = fetchImmediate();
     dest = dest & 0b00000111;
     uint8_t value = bus->read(IY + d);
+    MPTR=IY+d;
 
     uint8_t currC = isFlagSet(C_flag);
     uint8_t newC = value & 0b10000000;
@@ -4330,6 +4418,7 @@ void z80::RRC_IX_D(uint8_t opCode)
     uint8_t dest = fetchImmediate();
     dest = dest & 0b00000111;
     uint8_t value = bus->read(IX + d);
+    MPTR=IX+d;
 
     uint8_t c = 0;
     if ((value & 0b00000001) > 0)
@@ -4359,6 +4448,7 @@ void z80::RRC_IY_D(uint8_t opCode)
     uint8_t dest = fetchImmediate();
     dest = opCode & 0b00000111;
     uint8_t value = bus->read(IY + d);
+    MPTR=IY+d;
 
     uint8_t c = 0;
     if ((value & 0b00000001) > 0)
@@ -4423,6 +4513,7 @@ void z80::RR_IX_D(uint8_t opCode)
     uint8_t dest = fetchImmediate();
     dest = dest & 0b00000111;
     uint8_t value = bus->read(IX + d);
+    MPTR=IX+d;
 
     uint8_t currC = isFlagSet(C_flag);
     uint8_t newC = value & 0b00000001;
@@ -4450,6 +4541,7 @@ void z80::RR_IY_D(uint8_t opCode)
     uint8_t dest = fetchImmediate();
     dest = dest & 0b00000111;
     uint8_t value = bus->read(IY + d);
+    MPTR=IY+d;
 
     uint8_t currC = isFlagSet(C_flag);
     uint8_t newC = value & 0b00000001;
@@ -4516,6 +4608,7 @@ void z80::SLA_IX_D(uint8_t opCode)
     uint8_t dest = fetchImmediate();
     dest = dest & 0b00000111;
     uint8_t value = bus->read(IX + d);
+    MPTR=IX+d;
 
     uint8_t newC = value & 0b10000000;
 
@@ -4537,6 +4630,7 @@ void z80::SLS_IX_D(uint8_t opCode)
     uint8_t dest = fetchImmediate();
     dest = dest & 0b00000111;
     uint8_t value = bus->read(IX + d);
+    MPTR=IX+d;
 
     uint8_t newC = value & 0b10000000;
 
@@ -4560,6 +4654,7 @@ void z80::SLS_IY_D(uint8_t opCode)
     uint8_t dest = fetchImmediate();
     dest = dest & 0b00000111;
     uint8_t value = bus->read(IY + d);
+    MPTR=IY+d;
 
     uint8_t newC = value & 0b10000000;
 
@@ -4582,6 +4677,7 @@ void z80::SLA_IY_D(uint8_t opCode)
     uint8_t dest = fetchImmediate();
     dest = dest & 0b00000111;
     uint8_t value = bus->read(IY + d);
+    MPTR=IY+d;
 
     uint8_t newC = value & 0b10000000;
 
@@ -4669,6 +4765,7 @@ void z80::SRA_IX_D(uint8_t opCode)
     uint8_t dest = fetchImmediate();
     dest = dest & 0b00000111;
     uint8_t value = bus->read(IX + d);
+    MPTR=IX+d;
 
     uint8_t newC = value & 0b00000001;
     uint8_t bit7 = value & 0b10000000;
@@ -4695,6 +4792,7 @@ void z80::SRA_IY_D(uint8_t opCode)
     uint8_t dest = fetchImmediate();
     dest = dest & 0b00000111;
     uint8_t value = bus->read(IY + d);
+    MPTR=IY+d;
 
     uint8_t newC = value & 0b00000001;
     uint8_t bit7 = value & 0b10000000;
@@ -4763,6 +4861,7 @@ void z80::SRL_IX_D(uint8_t opCode)
     uint8_t dest = fetchImmediate();
     dest = dest & 0b00000111;
     uint8_t value = bus->read(IX + d);
+    MPTR=IX+d;
 
     uint8_t newC = value & 0b00000001;
 
@@ -4784,6 +4883,7 @@ void z80::SRL_IY_D(uint8_t opCode)
     uint8_t dest = fetchImmediate();
     dest = dest & 0b00000111;
     uint8_t value = bus->read(IY + d);
+    MPTR=IY+d;
 
     uint8_t newC = value & 0b00000001;
     value = value >> 1;
@@ -4819,8 +4919,8 @@ void z80::RLD(uint8_t opCode)
     ((int8_t)A < 0) ? setFlag(S) : clearFlag(S);
     isEvenParity(A) ? setFlag(P) : clearFlag(P);
 
-    ((A & 0x08) > 0)  ? setFlag(X) : clearFlag(X);
-    ((A & 0x20) > 0)  ? setFlag(U) : clearFlag(U);
+    ((A & 0x08) > 0) ? setFlag(X) : clearFlag(X);
+    ((A & 0x20) > 0) ? setFlag(U) : clearFlag(U);
     MPTR = (getHL() + 1);
 }
 void z80::RRD(uint8_t opCode)
@@ -4843,8 +4943,8 @@ void z80::RRD(uint8_t opCode)
     ((int8_t)A < 0) ? setFlag(S) : clearFlag(S);
     isEvenParity(A) ? setFlag(P) : clearFlag(P);
 
-    ((A & 0x08) > 0)  ? setFlag(X) : clearFlag(X);
-    ((A & 0x20) > 0)  ? setFlag(U) : clearFlag(U);
+    ((A & 0x08) > 0) ? setFlag(X) : clearFlag(X);
+    ((A & 0x20) > 0) ? setFlag(U) : clearFlag(U);
     MPTR = (getHL() + 1);
 }
 /*****************************************|
@@ -4879,7 +4979,6 @@ void z80::BIT_B_HL(uint8_t opCode)
     uint8_t bit = (opCode & 0b00111000) >> 3;
 
     uint8_t result = value & (1 << bit);
-  
 
     clearFlag(N);
     setFlag(H_flag);
@@ -4957,7 +5056,7 @@ void z80::SET_B_IX_D(uint8_t opCode)
     uint8_t dest = fetchImmediate();
     dest = dest & 0b00000111;
     uint8_t value = bus->read(IX + d);
-    MPTR = IX +d;
+    MPTR = IX + d;
     uint8_t bit = (opCode & 0b00111000) >> 3;
     value |= (1 << bit);
 
@@ -4974,7 +5073,7 @@ void z80::SET_B_IY_D(uint8_t opCode)
     uint8_t dest = fetchImmediate();
     dest = dest & 0b00000111;
     uint8_t value = bus->read(IY + d);
-    MPTR = IY +d; 
+    MPTR = IY + d;
     uint8_t bit = (opCode & 0b00111000) >> 3;
     value |= (1 << bit);
 
@@ -5010,6 +5109,7 @@ void z80::RES_B_IX_D(uint8_t opCode)
     uint8_t dest = fetchImmediate();
     dest = dest & 0b00000111;
     uint8_t value = bus->read(IX + d);
+    MPTR=IX+d;
 
     uint8_t bit = (opCode & 0b00111000) >> 3;
     value &= ~(1 << bit);
@@ -5027,6 +5127,7 @@ void z80::RES_B_IY_D(uint8_t opCode)
     uint8_t dest = fetchImmediate();
     dest = dest & 0b00000111;
     uint8_t value = bus->read(IY + d);
+    MPTR=IY+d;
 
     uint8_t bit = (opCode & 0b00111000) >> 3;
     value &= ~(1 << bit);
@@ -5094,7 +5195,7 @@ void z80::JR_E(uint8_t opCode)
 {
     int8_t e = fetchImmediate();
     PC = PC + (uint16_t)e;
-    MPTR = PC;
+    MPTR = PC+1;
 }
 
 void z80::JR_C_E(uint8_t opCode)
@@ -5104,7 +5205,7 @@ void z80::JR_C_E(uint8_t opCode)
     if (isFlagSet(C_flag))
     {
         PC = PC + (uint16_t)e;
-        MPTR = PC;
+        MPTR = PC+1;
     }
 }
 void z80::JR_NC_E(uint8_t opCode)
@@ -5114,7 +5215,7 @@ void z80::JR_NC_E(uint8_t opCode)
     if (!isFlagSet(C_flag))
     {
         PC = PC + (uint16_t)e;
-        MPTR = PC;
+        MPTR = PC+1;
     }
 }
 void z80::JR_Z_E(uint8_t opCode)
@@ -5124,7 +5225,7 @@ void z80::JR_Z_E(uint8_t opCode)
     if (isFlagSet(Z))
     {
         PC = PC + (uint16_t)e;
-        MPTR = PC;
+        MPTR = PC+1;
     }
 }
 void z80::JR_NZ_E(uint8_t opCode)
@@ -5134,7 +5235,7 @@ void z80::JR_NZ_E(uint8_t opCode)
     if (!isFlagSet(Z))
     {
         PC = (uint16_t)PC + e;
-        MPTR = PC;
+        MPTR = PC+1;
     }
 }
 void z80::JP_HL(uint8_t opCode)
@@ -5162,7 +5263,7 @@ void z80::DJNZ_E(uint8_t opCode)
     if (!isFlagSet(Z))
     {
         PC = PC + e;
-        MPTR = PC;
+        MPTR = PC+1;
     }
 }
 
@@ -5174,8 +5275,8 @@ void z80::DJNZ_E(uint8_t opCode)
 
 void z80::pushPC()
 {
-    uint8_t loByte = (PC+1) & 0xff;
-    uint8_t hiByte = ((PC+1) >> 8) & 0xff;
+    uint8_t loByte = (PC + 1) & 0xff;
+    uint8_t hiByte = ((PC + 1) >> 8) & 0xff;
 
     SP--;
     bus->write(SP, hiByte);
@@ -5211,21 +5312,20 @@ void z80::CALL_CC_NN(uint8_t opCode)
 
     uint8_t cc = (opCode & 0b00111000) >> 3;
 
-    
     uint16_t address = (hiByte << 8) + loByte;
-    
+
     if (evaluateCC(cc))
     {
         pushPC();
-        PC = address-1;
+        PC = address - 1;
     }
-     MPTR = address;
+    MPTR = address;
 }
 void z80::RET(uint8_t opCode)
 {
     popPC();
     PC--;
-    MPTR = PC;
+    MPTR = PC+1;
 }
 void z80::RET_CC(uint8_t opCode)
 {
@@ -5242,6 +5342,7 @@ void z80::RETI(uint8_t opCode)
 {
     popPC();
     PC--;
+    MPTR = PC +1;
     // toDo send signal to interupt device
 }
 void z80::RETN(uint8_t opCode)
@@ -5249,14 +5350,16 @@ void z80::RETN(uint8_t opCode)
     popPC();
     PC--;
     IFF1 = IFF2;
+    MPTR = PC+1;
 }
 void z80::RST_P(uint8_t opCode)
 {
     uint8_t value = (opCode & 0b00111000) >> 3;
     uint16_t address = getPageZeroAddress(value);
-    
+
     pushPC();
     PC = address - 1;
+    MPTR = address;
 }
 
 uint16_t z80::getPageZeroAddress(uint8_t value)
@@ -5295,15 +5398,17 @@ void z80::IN_A_N(uint8_t opCode)
     uint8_t port = fetchImmediate();
 
     uint16_t address = (A << 8) + port;
-    uint8_t n = bus->read(address); // toDO test and finish this
-    // A = n;
+    uint8_t n = bus->readIO(address); 
+    MPTR = address + 1;
+    A = n;
+    
 }
 void z80::IN_R_C(uint8_t opCode)
 {
-     uint8_t n = bus->readIO(getBC());
-   
-     uint8_t dest = (opCode & 0b00111000) >> 3;
-     writeToRegister(dest, n);
+    uint8_t n = bus->readIO(getBC());
+
+    uint8_t dest = (opCode & 0b00111000) >> 3;
+    writeToRegister(dest, n);
 
     clearFlag(N);
     clearFlag(H_flag);
@@ -5316,11 +5421,12 @@ void z80::IN_R_C(uint8_t opCode)
 }
 void z80::INI(uint8_t opCode)
 {
-    uint8_t n = bus->readIO(C);
-    // bus->writeIO(getHL(), n);
+    uint8_t n = bus->readIO(getBC());
+    MPTR = getBC() + 1;
+    bus->write(getHL(), n);
 
     uint16_t HLq = getHL();
-    HLq + 1;
+    HLq++;
     writeToRegisterPair(2, HLq);
     uint8_t val = B;
     B = B - 1;
@@ -5328,43 +5434,140 @@ void z80::INI(uint8_t opCode)
 
     DecFlags(val, decVal);
 
-    uint8_t k = n + ((C + 1) & 255);
+    uint16_t k = n + ((C + 1) & 255);
     k > 0xFF ? setFlag(H_flag) : clearFlag(H_flag);
     k > 0xFF ? setFlag(C_flag) : clearFlag(C_flag);
 
-    uint8_t x = ((k & 7) ^ decVal);
+    uint16_t x = ((k & 7) ^ decVal);
     isEvenParity(x) ? setFlag(P) : clearFlag(P);
     ((n & 0x80) > 0) ? setFlag(N) : clearFlag(N);
 }
 void z80::INIR(uint8_t opCode)
 {
+    INI(opCode);
+    if (B != 0)
+    {
+        PC -= 2;
+    }
 }
 void z80::IND(uint8_t opCode)
 {
+    uint8_t value = bus->readIO(getBC());
+    bus->write(getHL(), value);
+    MPTR = getBC() - 1;
+
+    uint16_t HL_ = getHL();
+    HL_--;
+    uint8_t hi1 = (HL_ >> 8) & 0xFF;
+    uint8_t lo1 = HL_ & 0xFF;
+
+    H = hi1;
+    L = lo1;
+
+    uint8_t val = B;
+    B = B - 1;
+    uint8_t decVal = B;
+    DecFlags(val, B);
+    uint16_t k = value + ((C - 1) & 255);
+    k > 0xFF ? setFlag(H_flag) : clearFlag(H_flag);
+    k > 0xFF ? setFlag(C_flag) : clearFlag(C_flag);
+
+    uint16_t x = ((k & 7) ^ decVal);
+    isEvenParity(x) ? setFlag(P) : clearFlag(P);
+    ((value & 0x80) > 0) ? setFlag(N) : clearFlag(N);
 }
 void z80::INDR(uint8_t opCode)
 {
+    IND(opCode);
+    if (B != 0)
+    {
+        PC -= 2;
+    }
 }
 void z80::OUT_N_A(uint8_t opCode)
 {
     uint8_t port = fetchImmediate();
-    bus->writeIO(A, port);
+
+    uint16_t address = (A << 8) + port;
+
+    bus->writeIO(address, A);
+    MPTR = (A << 8) + ((port + 1) & 0xFF);
 }
 void z80::OUT_C_R(uint8_t opCode)
 {
+    MPTR = getBC() + 1;
     uint8_t src = (opCode & 0b00111000) >> 3;
     uint8_t n = readFromRegister(src);
-    bus->writeIO(C, n);
+    bus->writeIO(getBC(), n);
 }
 void z80::OUTI(uint8_t opCode)
 {
+    uint8_t value = bus->read(getHL());
+    bus->writeIO(getBC(), value);
+    
+
+    uint16_t HL_ = getHL();
+    HL_++;
+    uint8_t hi1 = (HL_ >> 8) & 0xFF;
+    uint8_t lo1 = HL_ & 0xFF;
+
+    H = hi1;
+    L = lo1;
+
+    uint8_t val = B;
+    B = B - 1;
+    uint8_t decVal = B;
+    MPTR = getBC() + 1;
+    DecFlags(val, B);
+    uint16_t k = value + L;
+    k > 0xFF ? setFlag(H_flag) : clearFlag(H_flag);
+    k > 0xFF ? setFlag(C_flag) : clearFlag(C_flag);
+
+    uint16_t x = ((k & 7) ^ decVal);
+    isEvenParity(x) ? setFlag(P) : clearFlag(P);
+    ((value & 0x80) > 0) ? setFlag(N) : clearFlag(N);
 }
 void z80::OTIR(uint8_t opCode)
 {
+    OUTI(opCode);
+
+    if (B != 0)
+    {
+        PC -= 2;
+    }
 }
 void z80::OUTD(uint8_t opCode)
 {
+    uint8_t value = bus->read(getHL());
+    bus->writeIO(getBC(), value);
+    
+
+    uint16_t HL_ = getHL();
+    HL_--;
+    uint8_t hi1 = (HL_ >> 8) & 0xFF;
+    uint8_t lo1 = HL_ & 0xFF;
+
+    H = hi1;
+    L = lo1;
+
+    uint8_t val = B;
+    B = B - 1;
+    uint8_t decVal = B;
+    MPTR = getBC() - 1;
+    DecFlags(val, B);
+    uint16_t k = value + L;
+    k > 0xFF ? setFlag(H_flag) : clearFlag(H_flag);
+    k > 0xFF ? setFlag(C_flag) : clearFlag(C_flag);
+
+    uint16_t x = ((k & 7) ^ decVal);
+    isEvenParity(x) ? setFlag(P) : clearFlag(P);
+    ((value & 0x80) > 0) ? setFlag(N) : clearFlag(N);
 }
 void z80::OTDR(uint8_t opCode)
 {
+    OUTD(opCode);
+    if (B != 0)
+    {
+        PC -= 2;
+    }
 }

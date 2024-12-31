@@ -1,71 +1,91 @@
 #include "bus.hpp"
 #include "memory.hpp"
 #include "IODevice.hpp"
-#include <iostream>  // for std::cout
+#include <iostream>  
+#include <algorithm> 
+#include <cstdlib> 
 
 
 // Constructor to initialize memory
-Bus::Bus(Memory& mem) : memory(mem), ioDevice(nullptr) {}
+Bus::Bus(Memory& mem) : memory(mem), ioDevice(nullptr) {
+    uint8_t ioPorts[256] = {0}; 
+    
+}
 
-// Attach an I/O device
 void Bus::attachIODevice(IODevice* device) {
     ioDevice = device;
 }
 
-// Read from the bus (either memory or I/O)
-int Bus::read(uint16_t address) {
-    address = address & 0xFFFF;  // Ensure address is 16-bit
-    if (ioDevice != nullptr && ioDevice->handlesAddress(address)) {
-        return ioDevice->read(address);  // Read from I/O device
-    }
-    return memory.read(address);  // Default to reading from memory
+
+uint8_t Bus::read(uint16_t address) {
+    return memory.read(address);  
 }
 
-// Write to the bus (either memory or I/O)
+
 void Bus::write(uint16_t address, uint8_t value) {
-    address = address & 0xFFFF;  // Ensure address is 16-bit
-    if (ioDevice != nullptr && ioDevice->handlesAddress(address)) {
-        ioDevice->write(address, value);  // Write to I/O device
-    } else {
-        memory.write(address, value);  // Default to writing to memory
-    }
-
-}
-
-// Read from an I/O port
-uint8_t Bus::readIO(uint8_t port) {
-    if (ioDevice != nullptr && port == ioPort) {
-        return ioDevice->read(port);  // Read from the device at the given port
-    }
-    std::cerr << "Warning: Unmapped I/O read at port 0x" << std::hex << (int)port << std::endl;
-    return 0xFF;  // Default return for unmapped ports
+    memory.write(address, value); 
 }
 
 
-// Write to an I/O port
-void Bus::writeIO(uint8_t port, uint8_t value) {
-    if (ioDevice != nullptr && port == ioPort) {
-        ioDevice->write(port, value);  // Write to the device at the given port
-    } else {
-        std::cerr << "Warning: Unmapped I/O write at port 0x" << std::hex << (int)port 
-                  << " with value 0x" << (int)value << std::endl;
+uint8_t Bus::readIO(uint16_t port) {
+    if ((port & 1) == 0) {
+        uint8_t result = 0xFF; 
+    uint8_t keyRow = (port & 0xFF00) >> 8;  
+        if (keyRow == 0x7F) {
+            result &= KeyMatrix[7];
+        } else if (keyRow == 0xBF) {
+            result &= KeyMatrix[6];
+        } else if (keyRow == 0xDF) {
+            result &= KeyMatrix[5];
+        } else if (keyRow == 0xEF) {
+            result &= KeyMatrix[4];
+        } else if (keyRow == 0xF7) {
+            result &= KeyMatrix[3];
+        } else if (keyRow == 0xFB) {
+            result &= KeyMatrix[2];
+        } else if (keyRow == 0xFD) {
+            result &= KeyMatrix[1];
+        } else if (keyRow == 0xFE) {
+            result &= KeyMatrix[0];
+        }
+
+        result &= 0x1F;  // Mask bits 0 to 4 (to clear higher bits)
+        result |= 0b11100000;  // Set bits 5 to 7
+
+        return result;  
     }
+    return 0;
+}
+
+int Bus::readBorder(uint16_t port) {
+    uint8_t lowBytePort = port & 0xFF;  
+
+    if (lowBytePort == 0xFE) {
+        return ioPorts[lowBytePort];  
+    }
+    return 0;
 }
 
 
-// Helper function to determine if an address is an I/O port
+
+void Bus::writeIO(uint16_t port, uint8_t value) {
+    uint8_t lowBytePort = port & 0xFF;  
+    ioPorts[lowBytePort] = value; 
+}
+
+
+
 bool Bus::isIOPort(uint16_t address) {
-    return (address & 0xFF00) == 0;  // I/O ports are mapped to the lower byte (0x00–0xFF)
+    return (address & 0xFF00) == 0; 
 }
 
 std::vector<uint8_t> Bus::readAllBytes(const std::string& filePath) {
     // Open the file in binary mode
-    std::ifstream file(filePath, std::ios::binary | std::ios::ate);  // 'ate' moves the pointer to the end of the file
+    std::ifstream file(filePath, std::ios::binary | std::ios::ate);  
     if (!file.is_open()) {
         throw std::runtime_error("Failed to open ROM file: " + filePath);
     }
 
-    // Get the size of the file
     std::streamsize fileSize = file.tellg();  // Get the size of the file
     file.seekg(0, std::ios::beg);  // Rewind to the beginning of the file
 
@@ -75,15 +95,12 @@ std::vector<uint8_t> Bus::readAllBytes(const std::string& filePath) {
         throw std::runtime_error("Error reading ROM file: " + filePath);
     }
 
-    file.close();  // Close the file
-    return buffer;  // Return the vector containing the file data
+    file.close();  
+    return buffer;  
 }
 
 void Bus::loadROM(const std::string& filePath) {
-    // Read the ROM file into a buffer
     std::vector<uint8_t> romData = readAllBytes(filePath);
-
-    // Now load the ROM data into the memory, starting from 0x0000
     for (size_t i = 0; i < romData.size(); ++i) {
         memory.write(static_cast<uint16_t>(i), romData[i]);
     }

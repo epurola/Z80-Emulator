@@ -43,6 +43,7 @@ add_library(${This} STATIC ${Sources} ${Headers})
 add_subdirectory(test)
 add_subdirectory(DebuggerQT)
 add_subdirectory(fuseTest)
+add_subdirectory(ZX_Spectrum)
 
 
 

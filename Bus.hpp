@@ -16,8 +16,13 @@ private:
     Memory& memory;     
     IODevice* ioDevice;  
     uint8_t ioPort; 
+    
+    
+    
 
 public:
+bool interrupt = false;
+uint8_t KeyMatrix[8];
     
     Bus(Memory& mem);
 
@@ -25,7 +30,7 @@ public:
     void attachIODevice(IODevice* device);
 
    
-    int read(uint16_t address);
+    uint8_t read(uint16_t address);
 
   
     void write(uint16_t address, uint8_t value);
@@ -35,8 +40,10 @@ public:
     std::vector<uint8_t> readAllBytes(const std::string& filePath);
 
     bool isIOPort(uint16_t address);  
-    uint8_t readIO(uint8_t port);     
-    void writeIO(uint8_t port, uint8_t value);  
+    uint8_t readIO(uint16_t port);     
+    int readBorder(uint16_t port);  
+    void writeIO(uint16_t port, uint8_t value);  
+    uint8_t ioPorts[256] = {0}; 
 
 };
 

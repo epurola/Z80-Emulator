@@ -102,12 +102,12 @@ private slots:
     void runToAddress()
     {
         char userInput = '\0';                                
-        std::ofstream outFile("execution_log.txt", std::ios::out); // Open a file for writing
+        std::ofstream outFile("execution_log.txt", std::ios::out); 
 
         if (!outFile.is_open())
         {
             qDebug() << "Failed to open file for logging!";
-            return; // Exit if the file can't be opened
+            return; 
         }
 
         // Writing header to the file
@@ -123,19 +123,11 @@ private slots:
             // Write the current PC to the file
             outFile << "Current PC: 0x" << pcString.toStdString() << "\n";
             std::string mnemonic = getMnemonic();
-            // Execute one instruction
+         
             cpu.execute(bus.read(cpu.PC));
-
-            // Get the mnemonic for the current instruction (this could be a method of your CPU class)
-            // Assuming getMnemonic() returns a string
-
-            // Write the mnemonic to the file
             outFile << "Mnemonic: " << mnemonic << "\n";
-
-            // Process pending events to keep the application responsive
             QCoreApplication::processEvents();
 
-            // Check if the "s" key is pressed to stop the loop (Windows-specific check)
             if (GetAsyncKeyState('S') & 0x8000) // Check if the "s" key is pressed
             {
                 userInput = 's'; // Set userInput to 's' to exit the loop
@@ -143,11 +135,10 @@ private slots:
 
         } while (userInput != 's'); // Exit the loop when "s" is pressed
 
-        // Log when execution is stopped
         qDebug() << "Execution stopped by user.";
-        outFile << "Execution stopped by user.\n"; // Write that execution was stopped
+        outFile << "Execution stopped by user.\n"; 
 
-        emit cpuStateChanged(); // Emit the state change signal
+        emit cpuStateChanged(); 
     }
 
     void updateState()

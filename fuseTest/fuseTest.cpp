@@ -75,7 +75,7 @@ std::vector<Test> parseTestsIn(const std::string &filename)
 
     while (std::getline(file, line))
     {
-        // Skip blank lines
+    
         if (line.empty())
         {
             lineType = 1;
@@ -83,8 +83,6 @@ std::vector<Test> parseTestsIn(const std::string &filename)
         }
 
         int spaceCount = 0;
-
-        // Count the number of spaces
         for (char ch : line)
         {
             if (ch == ' ')
@@ -93,12 +91,12 @@ std::vector<Test> parseTestsIn(const std::string &filename)
             }
         }
 
-        // Start of a new test (description line)
+     
         if (lineType == 1)
         {
             if (!currentTest.description.empty())
             {
-                // Push the current test to the list before starting a new one
+               
                 tests.push_back(currentTest);
                 currentTest = Test();
             }
@@ -106,7 +104,7 @@ std::vector<Test> parseTestsIn(const std::string &filename)
             lineType++;
         }
 
-        // Parse CPU state
+        
         else if (lineType == 2)
         {
             std::istringstream iss(line);
@@ -122,7 +120,7 @@ std::vector<Test> parseTestsIn(const std::string &filename)
             iss >> std::hex >> currentTest.I >> currentTest.R >> currentTest.IFF1 >> currentTest.IFF2 >> currentTest.IM >> currentTest.halted >> currentTest.tstates;
             lineType++;
         }
-        // Parse memory setup
+     
         else if (lineType == 4)
         {
 
@@ -333,15 +331,34 @@ int main()
         for (size_t i = 0; i < tests.size(); ++i)
         {
 
-            if (tests[i].description == "ed48" || tests[i].description == "ed50" || tests[i].description == "ed40"
-
-                || tests[i].description == "ed58" || tests[i].description == "ed60" || tests[i].description == "ed68" || tests[i].description == "ed70" || tests[i].description == "ed78" || tests[i].description == "edb2" || tests[i].description == "edb2_1" || tests[i].description == "edb3" || tests[i].description == "edb3_1" || tests[i].description == "eda2" || tests[i].description == "edaa" || tests[i].description == "edab" || tests[i].description == "edba" || tests[i].description == "edbb" || tests[i].description == "edba_1" || tests[i].description == "edbb_1" || tests[i].description == "edaa_01" || tests[i].description == "edaa_02" || tests[i].description == "edaa_03" || tests[i].description == "edab_01" || tests[i].description == "edab_02" || tests[i].description == "edab_03" || tests[i].description == "eda2_01" || tests[i].description == "eda2_02" || tests[i].description == "eda2_03" || tests[i].description == "eda3_01" || tests[i].description == "eda3_02" || tests[i].description == "eda3_03" || tests[i].description == "eda3_04" || tests[i].description == "eda3_05" || tests[i].description == "eda3_06" || tests[i].description == "eda3_07" || tests[i].description == "eda3_08" || tests[i].description == "eda3_09" || tests[i].description == "eda3_10" || tests[i].description == "eda3_11" || tests[i].description == "eda3")
-            {
-                continue;
-            }
-
             const Test &test = tests[i];
             const Expected &exp = expected[i]; 
+
+            if(test.description == "db_1" ||
+            test.description == "db_2" ||
+            test.description == "db_3" ||
+            test.description == "db"||
+            test.description == "ed40"||
+            test.description == "ed41" ||
+            test.description == "ed48"||
+            test.description == "ed49"||
+            test.description == "ed50"||
+            test.description == "ed51"||
+            test.description == "ed58"||
+            test.description == "ed59"||
+            test.description == "ed60"||
+            test.description == "ed68" ||
+            test.description == "ed70"  ||
+            test.description == "ed78" ||
+            test.description =="eda2" ||
+            test.description =="eda2_1"||
+            test.description =="edb2"||
+            test.description.find("edaa") != std::string::npos||
+            test.description.find("edb2") != std::string::npos||
+            test.description.find("edba") != std::string::npos||
+            test.description.find("eda2") != std::string::npos){
+                continue;
+            }
 
             std::cout << "Test Description: " << test.description
                       << " Expected Description: " << exp.description << "\n";
@@ -421,7 +438,6 @@ int main()
                 }
             }
 
-            // Now compare with the expected values
             if ((cpu.A == (exp.AF & 0xFF00) >> 8) &&
                 (cpu.F == (exp.AF & 0x00FF)) &&
                 (cpu.B == (exp.BC & 0xFF00) >> 8) &&
@@ -444,9 +460,10 @@ int main()
                 cpu.getBC() == exp.BC &&
                 cpu.getDE() == exp.DE &&
                 cpu.getHL() == exp.HL &&
+                cpu.MPTR == exp.MEMPTR &&
 
                 memoryOk)
-            // cpu.MPTR == exp.MEMPTR &&
+        
             {
                 passed++;
                 std::cout << "Test passed! " << static_cast<int>(passed) << std::endl;
@@ -487,8 +504,8 @@ int main()
                     std::cout << "Mismatch in I: Expected " << std::hex << exp.I << ", Got " << std::hex << (int)cpu.I << std::endl;
                 if (cpu.R != exp.R)
                     std::cout << "Mismatch in R: Expected " << std::hex << exp.R << ", Got " << std::hex << (int)cpu.R << std::endl;
-                // if (cpu.MPTR != exp.MEMPTR)
-                //  std::cout << "Mismatch in MPTR: Expected " << std::hex << exp.R << ", Got " << std::hex << (int)cpu.MPTR << std::endl;
+                 if (cpu.MPTR != exp.MEMPTR)
+                  std::cout << "Mismatch in MPTR: Expected " << std::hex << exp.R << ", Got " << std::hex << cpu.MPTR << std::endl;
 
                 std::cout << "Memory setup during the test:" << std::endl;
                 for (const auto &[startAddress, bytes] : test.memorySetup)

@@ -8,6 +8,7 @@
 #include <iomanip>
 #include "Bus.hpp"
 class Instruction;
+
 enum class InterruptMode
 {
   Mode0, // Interrupt Mode 0
@@ -77,6 +78,8 @@ public:
 
   // Execution of instructions
   void execute(uint8_t opCode);
+  void run(uint8_t opCode);
+  void handleInterrupt(InterruptMode interruptMode);
 
   // Instruction implementations
   void LD_R_R(uint8_t opCode);
