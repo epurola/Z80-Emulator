@@ -1,7 +1,7 @@
 ﻿# Z80-Emulator
 
 ## Description
-The **Z80 Emulator** is a emulator for the Z80 microprocessor, developed using a **test-driven development (TDD)** approach to ensure reliability and correctness. The emulator was extensively validated using **Fuse emulator tests**, which were integrated directly into the project for thorough testing and verification. 
+The **Z80 Emulator** is an emulator for the Z80 microprocessor, developed using a **test-driven development (TDD)** approach to ensure reliability and correctness. The emulator was extensively validated using **Fuse emulator tests**, which were integrated directly into the project for thorough testing and verification. 
 
 ## Current Limitations
 While the emulator is functional and can successfully boot the ZX Spectrum ROM, there are a few features that are not yet supported:
@@ -22,4 +22,5 @@ In addition to the core emulation functionality, the project includes a **debugg
 ZXspectrum running using the emulated cpu
 ![alt text](image-1.png)
 ![alt text](image-2.png)
+
 
