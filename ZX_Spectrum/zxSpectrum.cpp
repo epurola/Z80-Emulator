@@ -469,7 +469,8 @@ int main(int argc, char *argv[])
     Bus bus(memory);
     z80 cpu;
 
-    bus.loadROM("C:\\Users\\eelip\\Downloads\\48.rom");
+    // bus.loadROM("C:\\Users\\eelip\\Downloads\\48.rom");
+    bus.loadROM("C:\\Users\\eelip\\Z80-Emulator\\48.rom");
     cpu.reset(&bus);
 
     ZXScreen screen(bus, cpu);

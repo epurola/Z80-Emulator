@@ -4024,6 +4024,9 @@ void z80::INC_SS(uint8_t opCode)
 
     sum += 1;
 
+    // Fix: 16-bit INC ss does not affect any CPU flags
+    // if(src == 2) sum == 0? setFlag(Z) : clearFlag(Z);
+
     writeToRegisterPair(src, sum);
 }
 void z80::INC_IX(uint8_t opCode)
@@ -4158,7 +4161,9 @@ void z80::RLA(uint8_t opCode)
     clearFlag(H_flag);
     clearFlag(N);
 
-    newC == 1 ? setFlag(C_flag) : clearFlag(C_flag);
+    // Fix: newC is 0x80 (128) when bit 7 is set, not 1; check newC > 0 so Carry flag is set properly
+    // newC == 1 ? setFlag(C_flag) : clearFlag(C_flag);
+    newC > 0 ? setFlag(C_flag) : clearFlag(C_flag);
 
     ((A & 0x08) > 0) ? setFlag(X) : clearFlag(X);
     ((A & 0x20) > 0) ? setFlag(U) : clearFlag(U);
@@ -4481,7 +4486,13 @@ void z80::RR_R(uint8_t opCode)
     uint8_t currC = isFlagSet(C_flag);
     uint8_t newC = value & 0b00000001;
 
-    value = (value >> 1) + currC;
+    // Fix: shift old Carry flag into bit 7 (0x80) instead of adding it to bit 0
+    // value = (value >> 1) + currC;
+    value = (value >> 1);
+    if (currC == 1)
+    {
+        value |= 0b10000000;
+    }
 
     writeToRegister(src, value);
 
@@ -5255,12 +5266,13 @@ void z80::DJNZ_E(uint8_t opCode)
 {
     int8_t e = fetchImmediate();
 
-    uint8_t initialB = B;
+    // uint8_t initialB = B;
     B--;
 
-    DecFlags(initialB, B);
-
-    if (!isFlagSet(Z))
+    // Fix: DJNZ does not affect any CPU flags; branch directly when B != 0
+    // DecFlags(initialB, B);
+    // if (!isFlagSet(Z))
+    if (B != 0)
     {
         PC = PC + e;
         MPTR = PC+1;
